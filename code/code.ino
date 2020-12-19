@@ -3,7 +3,38 @@
 
 float X, Y, Z;
 
-bool stateArr[4];
+/*
+ * States:
+ * State 0:
+ *    pushup resting position (Chest Up) or Jumping Jack resting position (Hands down) 
+ *    
+ * State 1:
+ *    Situp resting position (lying down) 
+ * 
+ * State 2:
+ *    pushup down
+ * 
+ * State 3:
+ *    Jumping Jack (hands up) or situp Up 
+ *    
+ *    
+ * * * * * * * * * * Possible transitions * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * Only the transitions below are valid. For example, you cannot transition from pushup up state
+ * to pushup up state, preventing a double count 
+ * 
+ * State 0 -> State 2 (Pushup - went down)
+ * State 2 -> State 0 (Pushup - went up)
+ * 
+ * State 0 -> State 3 (Jumping jack went up)
+ * State 3 -> State 0 (Went to JJ resiting position)
+ * 
+ * State 1 -> State 3 (Situp)
+ * State 3 -> State 1 (back to rest mode)
+ * 
+ * NB: State 0, and 1 are possible start points
+ */
+unsigned char stateArr;
+
 
 void setup() {
   Serial.begin(9600);
@@ -12,9 +43,21 @@ void setup() {
   
   DDRD &= ~(1 << 4); // Left button - setup to input
   DDRF &= ~(1<< 6); // Right button
+
+  Serial.println("Get into starting position");
+  delay(3000);
+
+  if (is_pushup_up_jj_down()) { 
+    stateArr = 0; 
+  }
+
+  else {
+    stateArr = 1;  
+  }
   
 
 }
+
 
 void loop() {
 
@@ -39,11 +82,6 @@ void loop() {
     light_up(500);
     Serial.println("Pushup Down");
   }
-
-  else if (is_pushup_up()){
-    light_up(500);
-    Serial.println("Pushup Up");
-  }
   
   else if (is_jj_ss_up()) {
 
@@ -51,9 +89,9 @@ void loop() {
     Serial.println("Jumping Jack UP or Situp Up");
   }
 
-  else if (is_jj_down()){
+  else if (is_pushup_up_jj_down()){
     light_up(500);
-    Serial.println("Jumping Jack Down");
+    Serial.println("Pushup Up Jumping Jack Down");
   }
 
   else if (is_situp_down){
@@ -90,19 +128,15 @@ void light_up(int delayTime) {
 
 // Exercise states
 bool is_pushup_down() {
-  return ((X < -5) & (Y > 3.5));
+  return ((X < -5) & (Y > 3));
 }
 
-bool is_pushup_up() {
+bool is_pushup_up_jj_down() {
   return ((X < -5) & (Y < 3));
 }
 
 bool is_jj_ss_up() {
   return (X > 5);
-}
-
-bool is_jj_down() {
-  return (X < -5);
 }
 
 bool is_situp_down() {
