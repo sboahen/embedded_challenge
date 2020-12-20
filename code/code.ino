@@ -33,7 +33,7 @@ float X, Y, Z;
  * 
  * NB: State 0, and 1 are possible start points
  */
-unsigned char stateArr;
+unsigned char state;
 
 
 void setup() {
@@ -45,8 +45,9 @@ void setup() {
   DDRF &= ~(1<< 6); // Right button
 
   Serial.println("Get into starting position");
-  delay(3000);
+  delay(5000); // 5 second wait
 
+  /*
   if (is_pushup_up_jj_down()) { 
     stateArr = 0; 
   }
@@ -54,7 +55,7 @@ void setup() {
   else {
     stateArr = 1;  
   }
-  
+  */
 
 }
 
@@ -78,6 +79,7 @@ void loop() {
   Serial.println(Z);
   */
 
+  /*
   if (is_pushup_down()){
     light_up(500);
     Serial.println("Pushup Down");
@@ -99,7 +101,65 @@ void loop() {
     Serial.println("Situp Down");
   }
   
+  */
+
+  switch(state){
   
+    case 0: 
+
+      if (is_pushup_down()){
+        light_up(500);
+        Serial.println("Pushup Down");
+        state = 2; 
+      }
+
+      else if (is_jj_ss_up()) {
+        light_up(500);
+        Serial.println("Jumping Jack UP or Situp Up");
+        state = 3;
+      }
+      
+      break;
+
+
+    case 1:
+
+      if (is_jj_ss_up()) {
+        light_up(500);
+        Serial.println("Jumping Jack UP or Situp Up");
+        state = 3;
+      }
+
+      break;
+
+
+    case 2:
+
+      if (is_pushup_up_jj_down()){
+        light_up(500);
+        Serial.println("Pushup Up Jumping Jack Down");
+        state = 0;
+      }
+
+      break;
+
+
+    case 3:
+
+      if (!is_jj_ss_up && is_situp_down){
+        light_up(500);
+        Serial.println("Situp Down");
+        state = 1;
+      }
+
+      else if (is_pushup_up_jj_down()){
+        light_up(500);
+        Serial.println("Pushup Up Jumping Jack Down");
+        state = 0;
+      }
+      break;
+
+  }
   
   
   delay(50);
