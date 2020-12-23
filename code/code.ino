@@ -66,16 +66,14 @@ void setup() {
   //When both buttons are pressed simultaneously, workout starts
   DDRD &= ~(1 << 4); // Left button - setup to input
   DDRF &= ~(1<< 6); // Right button
-
-  Serial.println("Get into starting position");
-  delay(5000); // 5 second wait
-
+  
   sei();
 
   reps_setup(); // number of reps may be setup here
-  
-  Serial.begin(9600);
 
+  delay(5000); // 5 second wait
+
+  Serial.begin(9600);
 }
 
 
