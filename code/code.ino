@@ -4,6 +4,8 @@
 float X, Y, Z;
 long numReps =10; // By default number of reps is 10
 long currCount = 0;
+volatile bool lightOn = false;
+volatile long msElapsed;
 
 /*
  * States:
@@ -56,7 +58,7 @@ void setup() {
   //             - WGM bit
   //              --- 64 CPS, each tick is 4us, so 250 ticks = 1 ms
   OCR1A = 250;
-  //TIMSK1 = 0b00000010; //setting this shuts off board for some reason
+  TIMSK1 = 0b00000010; //setting this shuts off board for some reason
   
   DDRD &= ~(1 << 4); // Left button - setup to input
   DDRF &= ~(1<< 6); // Right button
@@ -64,15 +66,6 @@ void setup() {
   Serial.println("Get into starting position");
   delay(5000); // 5 second wait
 
-  /*
-  if (is_pushup_up_jj_down()) { 
-    stateArr = 0; 
-  }
-
-  else {
-    stateArr = 1;  
-  }
-  */
   sei();
 
   long tempRep = 0;
@@ -92,14 +85,16 @@ void setup() {
 
 }
 
-// I wanted to use the ISR to turn off the lights as that would be more efficient than using delay in loop code
-// However, setting TIMSK1 for some reason upsets the board and I spend about 20 minutes each time to reset it
-/*
-ISR(TIMER1_OVF_vect)
+
+ISR(TIMER1_COMPA_vect)
 {
-  CircuitPlayground.clearPixels(); 
+  if (msElapsed > 250){
+    CircuitPlayground.clearPixels();
+    msElapsed = 0;
+    lightOn = false;
+  }
+  if (lightOn) { msElapsed++; }
 }
-*/
 
 
 
@@ -107,7 +102,7 @@ void loop() {
 
   if (currCount == numReps) { 
 
-    light_up(125);
+    light_up();
   }
 
   else {
@@ -121,13 +116,13 @@ void loop() {
       case 0: 
   
         if (is_pushup_down()){
-          light_up(250);
+          light_up();
           Serial.println("Pushup Down");
           state = 2; 
         }
   
         else if (is_jj_ss_up()) {
-          light_up(250);
+          light_up();
           Serial.println("Jumping Jack UP or Situp Up");
           state = 3;
         }
@@ -138,7 +133,7 @@ void loop() {
       case 1:
   
         if (is_jj_ss_up()) {
-          light_up(250);
+          light_up();
           Serial.println("Jumping Jack UP or Situp Up");
           state = 3;
         }
@@ -149,7 +144,7 @@ void loop() {
       case 2:
   
         if (is_pushup_up_jj_down()){
-          light_up(250);
+          light_up();
           Serial.println("Pushup Up Jumping Jack Down");
           state = 0;
           currCount++; // from state 2 to 0 is a rep
@@ -161,21 +156,21 @@ void loop() {
       case 3:
   
         if (!is_jj_ss_up && is_situp_down){
-          light_up(250);
+          light_up();
           Serial.println("Situp Down");
           state = 1;
           currCount++;
         }
   
         else if (is_pushup_up_jj_down()){
-          light_up(250);
+          light_up();
           Serial.println("Pushup Up Jumping Jack Down");
           state = 0;
           currCount++;
         }
 
         else if (is_squat_down()) {
-          light_up(250);
+          light_up();
           Serial.println("Squat Down");
           state = 4;
         }
@@ -184,7 +179,7 @@ void loop() {
       case 4:
 
         if (is_jj_ss_up()) {
-          light_up(250);
+          light_up();
           Serial.println("Jumping Jack UP or Situp Up");
           state = 3;
           currCount++;
@@ -200,7 +195,7 @@ void loop() {
 }
 
 
-void light_up(int delayTime) {
+void light_up() {
 
   CircuitPlayground.setPixelColor(0, 255,   0,   0);
   CircuitPlayground.setPixelColor(1, 128, 128,   0);
@@ -213,9 +208,11 @@ void light_up(int delayTime) {
   CircuitPlayground.setPixelColor(7, 0x00FF00);
   CircuitPlayground.setPixelColor(8, 0x008080);
   CircuitPlayground.setPixelColor(9, 0x0000FF);
+
+  lightOn = true;
  
-  delay(delayTime);
-  CircuitPlayground.clearPixels();
+  //delay(delayTime);
+  //CircuitPlayground.clearPixels();
 }
 
 
