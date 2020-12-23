@@ -18,6 +18,9 @@ long currCount = 0;
  * 
  * State 3:
  *    Jumping Jack (hands up) or situp Up 
+ *
+ *State 4:
+ *    Squat down
  *    
  *    
  * * * * * * * * * * Possible transitions * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -32,6 +35,9 @@ long currCount = 0;
  * 
  * State 1 -> State 3 (Situp)
  * State 3 -> State 1 (back to rest mode)
+ * 
+ * State 3 -> State 4 (Squat down)
+ * State 4 -> State 2 (Squat went up)
  * 
  * NB: State 0, and 1 are possible start points
  */
@@ -167,8 +173,23 @@ void loop() {
           state = 0;
           currCount++;
         }
+
+        else if (is_squat_down()) {
+          light_up(250);
+          Serial.println("Squat Down");
+          state = 4;
+        }
         break;
-  
+
+      case 4:
+
+        if (is_jj_ss_up()) {
+          light_up(250);
+          Serial.println("Jumping Jack UP or Situp Up");
+          state = 3;
+          currCount++;
+        }
+        break;
     }
 
     delay(500); // allows for mechanical debouncing
@@ -208,9 +229,13 @@ bool is_pushup_up_jj_down() {
 }
 
 bool is_jj_ss_up() {
-  return (X > 5);
+  return (X > 5) && (Z < 5);
 }
 
 bool is_situp_down() {
   return ((Z < -7.8) & (Y > -4) & (Y < 2));
+}
+
+bool is_squat_down() {
+  return ((Z > 5) && (X <8.6) && (X > 6));
 }
