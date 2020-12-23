@@ -1,5 +1,5 @@
 
-#include <Adafruit_CircuitPlayground.h>
+#include <Adafruit_CircuitPlayground.h> // imported for lights setup
 
 float X, Y, Z;
 long numReps =10; // By default number of reps is 10
@@ -48,9 +48,9 @@ unsigned char state;
 
 void setup() {
 
-  CircuitPlayground.begin(); /////////////////////////////////remove as compl.
+  CircuitPlayground.begin();
 
-  //Setup 
+  //Interrupts setup 
   cli();
   TCCR1A = 0b00000010;
   //               -- Counter OCR1A Top
@@ -58,8 +58,12 @@ void setup() {
   //             - WGM bit
   //              --- 64 CPS, each tick is 4us, so 250 ticks = 1 ms
   OCR1A = 250;
-  TIMSK1 = 0b00000010; //setting this shuts off board for some reason
-  
+  TIMSK1 = 0b00000010; 
+
+
+  // Left and right buttons may be used to manually configure number  
+  // of reps to be done. Right for steps of 10; left for single increments
+  //When both buttons are pressed simultaneously, workout starts
   DDRD &= ~(1 << 4); // Left button - setup to input
   DDRF &= ~(1<< 6); // Right button
 
@@ -68,24 +72,15 @@ void setup() {
 
   sei();
 
-  long tempRep = 0;
-  delay(100);
-  while (!((PIND & (1 << 4)) && (PINF & (1 << 6)))) { // both buttons are pressed to start
-    Serial.println("In here");
-
-    if (PIND & (1 << 4)) { tempRep++; }
-
-    if (PINF & (1 << 6)) { tempRep += 10; }
-    delay(200); // debounce
-  }
-
-  if (tempRep > 0) { numReps = tempRep; } 
+  reps_setup(); // number of reps may be setup here
   
   Serial.begin(9600);
 
 }
 
 
+// Interrupt to turn off light after workout instead having a delay function
+// which slows down the entire process just to light up
 ISR(TIMER1_COMPA_vect)
 {
   if (msElapsed > 250){
@@ -100,98 +95,15 @@ ISR(TIMER1_COMPA_vect)
 
 void loop() {
 
-  if (currCount == numReps) { 
+  if (currCount == numReps) { // Completed workout
 
-    light_up();
+    light_up(); // lights up indefinitely
   }
 
   else {
 
-    X = CircuitPlayground.motionX();
-    Y = CircuitPlayground.motionY();
-    Z = CircuitPlayground.motionZ();
-  
-    switch(state){
-    
-      case 0: 
-  
-        if (is_pushup_down()){
-          light_up();
-          Serial.println("Pushup Down");
-          state = 2; 
-        }
-  
-        else if (is_jj_ss_up()) {
-          light_up();
-          Serial.println("Jumping Jack UP or Situp Up");
-          state = 3;
-        }
-        
-        break;
-  
-  
-      case 1:
-  
-        if (is_jj_ss_up()) {
-          light_up();
-          Serial.println("Jumping Jack UP or Situp Up");
-          state = 3;
-        }
-  
-        break;
-  
-  
-      case 2:
-  
-        if (is_pushup_up_jj_down()){
-          light_up();
-          Serial.println("Pushup Up Jumping Jack Down");
-          state = 0;
-          currCount++; // from state 2 to 0 is a rep
-        }
-  
-        break;
-  
-  
-      case 3:
-  
-        if (!is_jj_ss_up && is_situp_down){
-          light_up();
-          Serial.println("Situp Down");
-          state = 1;
-          currCount++;
-        }
-  
-        else if (is_pushup_up_jj_down()){
-          light_up();
-          Serial.println("Pushup Up Jumping Jack Down");
-          state = 0;
-          currCount++;
-        }
-
-        else if (is_squat_down()) {
-          light_up();
-          Serial.println("Squat Down");
-          state = 4;
-        }
-        break;
-
-      case 4:
-
-        if (is_jj_ss_up()) {
-          light_up();
-          Serial.println("Jumping Jack UP or Situp Up");
-          state = 3;
-          currCount++;
-        }
-        break;
-    }
-
-    delay(500); // allows for mechanical debouncing
+    currCount += check_activity();
   }
-  
-  
-
 }
 
 
@@ -210,9 +122,6 @@ void light_up() {
   CircuitPlayground.setPixelColor(9, 0x0000FF);
 
   lightOn = true;
- 
-  //delay(delayTime);
-  //CircuitPlayground.clearPixels();
 }
 
 
@@ -235,4 +144,110 @@ bool is_situp_down() {
 
 bool is_squat_down() {
   return ((Z > 5) && (X <8.6) && (X > 6));
+}
+
+
+int check_activity() {
+
+  X = CircuitPlayground.motionX();
+  Y = CircuitPlayground.motionY();
+  Z = CircuitPlayground.motionZ();
+
+  bool isRep = false;
+
+  switch(state){
+  
+    case 0: 
+
+      if (is_pushup_down()){
+        light_up();
+        Serial.println("Pushup Down");
+        state = 2; 
+      }
+
+      else if (is_jj_ss_up()) {
+        light_up();
+        Serial.println("Jumping Jack UP or Situp Up");
+        state = 3;
+      }
+      
+      break;
+
+
+    case 1:
+
+      if (is_jj_ss_up()) {
+        light_up();
+        Serial.println("Jumping Jack UP or Situp Up");
+        state = 3;
+      }
+
+      break;
+
+
+    case 2:
+
+      if (is_pushup_up_jj_down()){
+        light_up();
+        Serial.println("Pushup Up Jumping Jack Down");
+        state = 0;
+        isRep = true; // from state 2 to 0 is a rep
+      }
+
+      break;
+
+
+    case 3:
+
+      if (!is_jj_ss_up && is_situp_down){
+        light_up();
+        Serial.println("Situp Down");
+        state = 1;
+        isRep = true;
+      }
+
+      else if (is_pushup_up_jj_down()){
+        light_up();
+        Serial.println("Pushup Up Jumping Jack Down");
+        state = 0;
+        isRep = true;
+      }
+
+      else if (is_squat_down()) {
+        light_up();
+        Serial.println("Squat Down");
+        state = 4;
+      }
+      break;
+
+    case 4:
+
+      if (is_jj_ss_up()) {
+        light_up();
+        Serial.println("Jumping Jack UP or Situp Up");
+        state = 3;
+        isRep = true;
+      }
+      break;
+  }
+
+  delay(500); // allows for mechanical debouncing
+  
+  if (isRep) { return 1; }
+  else {return 0; }
+}
+
+void reps_setup() {
+
+  long tempRep = 0;
+  delay(100);
+  while (!((PIND & (1 << 4)) && (PINF & (1 << 6)))) { // both buttons are pressed to start
+
+    if (PIND & (1 << 4)) { tempRep++; }
+
+    if (PINF & (1 << 6)) { tempRep += 10; }
+    delay(200); // debounce
+  }
+
+  if (tempRep > 0) { numReps = tempRep; } 
 }
