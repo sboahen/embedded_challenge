@@ -2,6 +2,8 @@
 #include <Adafruit_CircuitPlayground.h>
 
 float X, Y, Z;
+long numReps =10; // By default number of reps is 10
+long currCount = 0;
 
 /*
  * States:
@@ -37,9 +39,18 @@ unsigned char state;
 
 
 void setup() {
-  Serial.begin(9600);
 
   CircuitPlayground.begin(); /////////////////////////////////remove as compl.
+
+  //Setup 
+  cli();
+  TCCR1A = 0b00000010;
+  //               -- Counter OCR1A Top
+  TCCR1B = 0b00000011;
+  //             - WGM bit
+  //              --- 64 CPS, each tick is 4us, so 250 ticks = 1 ms
+  OCR1A = 250;
+  //TIMSK1 = 0b00000010; //setting this shuts off board for some reason
   
   DDRD &= ~(1 << 4); // Left button - setup to input
   DDRF &= ~(1<< 6); // Right button
@@ -56,113 +67,114 @@ void setup() {
     stateArr = 1;  
   }
   */
+  sei();
+
+  long tempRep = 0;
+  delay(100);
+  while (!((PIND & (1 << 4)) && (PINF & (1 << 6)))) { // both buttons are pressed to start
+    Serial.println("In here");
+
+    if (PIND & (1 << 4)) { tempRep++; }
+
+    if (PINF & (1 << 6)) { tempRep += 10; }
+    delay(200); // debounce
+  }
+
+  if (tempRep > 0) { numReps = tempRep; } 
+  
+  Serial.begin(9600);
 
 }
+
+// I wanted to use the ISR to turn off the lights as that would be more efficient than using delay in loop code
+// However, setting TIMSK1 for some reason upsets the board and I spend about 20 minutes each time to reset it
+/*
+ISR(TIMER1_OVF_vect)
+{
+  CircuitPlayground.clearPixels(); 
+}
+*/
+
 
 
 void loop() {
 
-  
-  //.println(PIND & (1 << 4)); // Left button - high when pressed
-  //Serial.println(PINF & (1 <<6)); // Right button 
+  if (currCount == numReps) { 
 
-  X = CircuitPlayground.motionX();
-  Y = CircuitPlayground.motionY();
-  Z = CircuitPlayground.motionZ();
-
-  /*
-  Serial.print("X: ");
-  Serial.print(X);
-  Serial.print("  Y: ");
-  Serial.print(Y);
-  Serial.print("  Z: ");
-  Serial.println(Z);
-  */
-
-  /*
-  if (is_pushup_down()){
-    light_up(500);
-    Serial.println("Pushup Down");
-  }
-  
-  else if (is_jj_ss_up()) {
-
-    light_up(500);
-    Serial.println("Jumping Jack UP or Situp Up");
+    light_up(125);
   }
 
-  else if (is_pushup_up_jj_down()){
-    light_up(500);
-    Serial.println("Pushup Up Jumping Jack Down");
-  }
+  else {
 
-  else if (is_situp_down){
-    light_up(500);
-    Serial.println("Situp Down");
-  }
+    X = CircuitPlayground.motionX();
+    Y = CircuitPlayground.motionY();
+    Z = CircuitPlayground.motionZ();
   
-  */
-
-  switch(state){
+    switch(state){
+    
+      case 0: 
   
-    case 0: 
+        if (is_pushup_down()){
+          light_up(250);
+          Serial.println("Pushup Down");
+          state = 2; 
+        }
+  
+        else if (is_jj_ss_up()) {
+          light_up(250);
+          Serial.println("Jumping Jack UP or Situp Up");
+          state = 3;
+        }
+        
+        break;
+  
+  
+      case 1:
+  
+        if (is_jj_ss_up()) {
+          light_up(250);
+          Serial.println("Jumping Jack UP or Situp Up");
+          state = 3;
+        }
+  
+        break;
+  
+  
+      case 2:
+  
+        if (is_pushup_up_jj_down()){
+          light_up(250);
+          Serial.println("Pushup Up Jumping Jack Down");
+          state = 0;
+          currCount++; // from state 2 to 0 is a rep
+        }
+  
+        break;
+  
+  
+      case 3:
+  
+        if (!is_jj_ss_up && is_situp_down){
+          light_up(250);
+          Serial.println("Situp Down");
+          state = 1;
+          currCount++;
+        }
+  
+        else if (is_pushup_up_jj_down()){
+          light_up(250);
+          Serial.println("Pushup Up Jumping Jack Down");
+          state = 0;
+          currCount++;
+        }
+        break;
+  
+    }
 
-      if (is_pushup_down()){
-        light_up(500);
-        Serial.println("Pushup Down");
-        state = 2; 
-      }
-
-      else if (is_jj_ss_up()) {
-        light_up(500);
-        Serial.println("Jumping Jack UP or Situp Up");
-        state = 3;
-      }
-      
-      break;
-
-
-    case 1:
-
-      if (is_jj_ss_up()) {
-        light_up(500);
-        Serial.println("Jumping Jack UP or Situp Up");
-        state = 3;
-      }
-
-      break;
-
-
-    case 2:
-
-      if (is_pushup_up_jj_down()){
-        light_up(500);
-        Serial.println("Pushup Up Jumping Jack Down");
-        state = 0;
-      }
-
-      break;
-
-
-    case 3:
-
-      if (!is_jj_ss_up && is_situp_down){
-        light_up(500);
-        Serial.println("Situp Down");
-        state = 1;
-      }
-
-      else if (is_pushup_up_jj_down()){
-        light_up(500);
-        Serial.println("Pushup Up Jumping Jack Down");
-        state = 0;
-      }
-      break;
-
+    delay(500); // allows for mechanical debouncing
   }
   
   
-  delay(50);
 
 }
 
